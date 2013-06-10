@@ -9,27 +9,21 @@ void usage(void){
 	exit(1);
 }
 
-void getopts(int argc,char **argv,struct sockaddr_in *conn,char *mode,char *me,char *them)
-{
+void getopts(int argc,char **argv,struct sockaddr_in *conn,char *mode,char *me,char *them){
 	int	 opt,
 			port=65536,
 			ip=0;
 
-	while((opt=getopt(argc,argv,"i:p:m:l:r:"))!=-1)
-	{
-		switch(opt)
-		{
+	while((opt=getopt(argc,argv,"i:p:m:l:r:"))!=-1){
+		switch(opt){
 			case 'i':
 				ip=inet_pton(AF_INET,optarg,&conn->sin_addr);
 				break;
 			case 'p':
 				port=atoi(optarg);
-				if((port<65536)&&(port>0))
-				{
+				if((port<65536)&&(port>0)){
 					conn->sin_port=htons(port%65536);
-				}
-				else
-				{
+				}else{
 					usage();
 				}
 				break;
@@ -52,22 +46,19 @@ void getopts(int argc,char **argv,struct sockaddr_in *conn,char *mode,char *me,c
 				usage();
 		}
 	}
-	switch(ip)
-	{
+	switch(ip){
 		case 1:
 			break;
 		default:
 			usage();
 	}
-	switch(port)
-	{
+	switch(port){
 		case 65536:
 			usage();
 		default:
 			break;
 	}
-	switch(mode[0])
-	{
+	switch(mode[0]){
 		case 'c':
 			break;
 		case 'l':

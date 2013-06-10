@@ -14,15 +14,18 @@
 struct salsa20_ctx		lsalsactx,
 						rsalsactx;
 
-struct cipherPacket{
+static int ec=0;
+
+typedef struct cipherPacket{
 	uint8_t	type;
 	size_t	sz;
-};
+} cipherPkt;
+
 /*
  *ReadRandom
  *	Reads 'sz' bytes from the defined E_SOURCE file into buffer 'buf'
  */
-void ReadRandom(void *buf,size_t sz){
+static void ReadRandom(void *buf,size_t sz){
 	size_t	tot=0;
 	ssize_t	tmp;
 	int		efd;
@@ -44,17 +47,6 @@ void ReadRandom(void *buf,size_t sz){
  *GetMsg
  *	Retrieve SALSA20_BLOCK_SIZE of message from fd.
  */
- /*
- static void GetMsg(uint8_t *buf){
-	 int	s=0;
-	 size_t tot=0;
-	 
-	 while(tot<SALSA20_BLOCK_SIZE&&s!=EOF){
-		 s=fgetc(stdin);
-		 buf[tot++]=s;
-	 }
- }
- */
 static void GetMsg(int fd,uint8_t *buf){
 	memset(buf,0,SALSA20_BLOCK_SIZE);
 	if(read(fd,buf,SALSA20_BLOCK_SIZE)<0){
@@ -66,9 +58,9 @@ static void GetMsg(int fd,uint8_t *buf){
  *	Send encrypted message to 'ext'.
  */
 static void SendMsg(int ext,uint8_t *msg){
-	size_t	tot=0;
-	ssize_t	tmp;
-	struct cipherPacket	phdr;
+	size_t		tot=0;
+	ssize_t		tmp;
+	cipherPkt	phdr;
 
 	phdr.type=SMTYPE;
 	phdr.sz=SALSA20_BLOCK_SIZE;
@@ -89,35 +81,6 @@ static void SendMsg(int ext,uint8_t *msg){
 	}
 }
 /*
- *RcvMsg
- *	Receives an encrypted Salsa20 message
- */
-static void RecvMsg(int ext,uint8_t *msg){
-	size_t	tot=0;
-	ssize_t	tmp;
-	struct cipherPacket	phdr;
-
-	while(tot<sizeof(phdr)){
-		if((tmp=recv(ext,&phdr+tot,sizeof(phdr)-tot,MSG_WAITALL))<0){
-			perror("RecvMsg:header:recv");
-		}else{
-			tot+=tmp;
-		}
-	}
-	tot=0;
-	if(phdr.sz==SALSA20_BLOCK_SIZE){
-		while(tot<phdr.sz){
-			if((tmp=recv(ext,msg+tot,phdr.sz-tot,MSG_WAITALL))<0){
-				perror("RecvMsg:content:recv");
-			}else{
-				tot+=tmp;
-			}
-		}	
-	}else{
-		fprintf(stderr,"Error bad cipher packet\n");
-	}
-}
-/*
  *PutMsg
  *	Writes a decrypted Salsa20 message to 'fd'
  */
@@ -134,7 +97,7 @@ static void PutMsg(int out,uint8_t *msg){
 	}
 }
 /*
- *NewSalsaKey
+ *InitSalsaKey
  *	Generates a new Salsa20 key and initialises the salsa20 context with it and a reset iv.
  */
 static void InitSalsaKey(uint8_t *key,struct salsa20_ctx *ctx){
@@ -150,7 +113,7 @@ static void InitSalsaKey(uint8_t *key,struct salsa20_ctx *ctx){
 static void SendSalsaKey(uint8_t *eKey,size_t eKeySz,int ext){
 	size_t	tot=0;
 	ssize_t	tmp;
-	struct cipherPacket	phdr;
+	cipherPkt	phdr;
 
 	phdr.type=SKTYPE;
 	phdr.sz=eKeySz;
@@ -171,33 +134,76 @@ static void SendSalsaKey(uint8_t *eKey,size_t eKeySz,int ext){
 	}
 }
 /*
+ *RcvMsg
+ *	Receives an encrypted Salsa20 message
+ */
+static void RecvMsg(int ext,uint8_t *msg){
+	size_t	tot=0;
+	ssize_t	tmp;
+
+	while(tot<SALSA20_BLOCK_SIZE){
+		if((tmp=recv(ext,msg+tot,SALSA20_BLOCK_SIZE-tot,MSG_WAITALL))<0){
+			perror("RecvMsg:content:recv");
+		}else{
+			tot+=tmp;
+		}
+	}
+}
+/*
  *ReceiveSalsaKey
  *	Receives an encrypted Salsa20 key from 'ext' and returns the encrypted data in a buffer.
  */
-static void *ReceiveSalsaKey(size_t *eKeySz,int ext){
+static void *ReceiveSalsaKey(size_t eKeySz,int ext){
 	size_t	tot=0;
 	ssize_t	tmp;
 	uint8_t	*ret;
-	struct cipherPacket	phdr;
+
+	ret=xmalloc(eKeySz);
+	if(ret!=NULL){
+		while(tot<eKeySz){
+			if((tmp=recv(ext,ret+tot,eKeySz-tot,MSG_WAITALL))<0){
+				perror("ReceiveSalsaKey:content:recv");
+			}else{
+				tot+=tmp;
+			}
+		}
+	}
+	return ret;
+}
+/*ParseMsg
+ *	Parse the data from an incoming message and process it appropriately as
+ *	either a new Salsa Key or a message encrypted with the current Salsa key.
+ */
+void ParseIncMsg(int out,int ext,uint8_t *ptext,uint8_t *ctext,uint8_t *rkey,const char *me){
+	size_t		tot=0;
+	ssize_t		tmp;
+	uint8_t		*tkey;
+	cipherPkt	phdr;
 
 	while(tot<sizeof(phdr)){
 		if((tmp=recv(ext,&phdr+tot,sizeof(phdr)-tot,MSG_WAITALL))<0){
-			perror("ReceiveSalsaKey:header:recv");
+			perror("ParseMsg:header:recv");
 		}else{
 			tot+=tmp;
 		}
 	}
-	tot=0;
-	ret=xmalloc(phdr.sz);
-	while(tot<phdr.sz){
-		if((tmp=recv(ext,ret+tot,phdr.sz-tot,MSG_WAITALL))<0){
-			perror("ReceiveSalsaKey:content:recv");
-		}else{
-			tot+=tmp;
-		}
+	switch(phdr.type){
+		case SKTYPE:
+			tkey=ReceiveSalsaKey(phdr.sz,ext);
+			DecryptSalsaKey(tkey,rkey,me,phdr.sz);
+			xfree(tkey,phdr.sz);
+			InitSalsaKey(rkey,&rsalsactx);
+			break;
+		case SMTYPE:
+			if(phdr.sz==SALSA20_BLOCK_SIZE){
+				RecvMsg(ext,ctext);
+				salsa20_crypt(&rsalsactx,SALSA20_BLOCK_SIZE,ptext,ctext);
+				PutMsg(out,ptext);
+				break;
+			}
+		default:
+			fprintf(stderr,"ParseMsg:Received Bad Packet (type (%d) - size (%lu))!\n",phdr.type,phdr.sz);
 	}
-	*eKeySz=tot;
-	return ret;
 }
 /*
  *CipherPipe
@@ -211,15 +217,11 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 				*rkey=xmalloc(SALSA20_KEY_SIZE),
 				*ptext=xmalloc(SALSA20_BLOCK_SIZE),
 				*ctext=xmalloc(SALSA20_BLOCK_SIZE);
-	uint64_t	rc=1,
-				lc=1;
+	uint64_t	lc=1;
 	int			maxfd;
 	size_t		eKeySz;
 	fd_set		fds;
-	struct timeval timeOut;
 
-	timeOut.tv_sec=5;
-	timeOut.tv_usec=0;
 	FD_ZERO(&fds);
 	FD_SET(in,&fds);
 	FD_SET(ext,&fds);
@@ -228,41 +230,33 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 	}else{
 		maxfd=ext+1;
 	}
-	ReadRandom(lkey,SALSA20_KEY_SIZE);
-	InitSalsaKey(lkey,&lsalsactx);
-	ekey=EncryptSalsaKey(lkey,them,&eKeySz);
-	SendSalsaKey(ekey,eKeySz,ext);
-	free(ekey);
-	ekey=ReceiveSalsaKey(&eKeySz,ext);
-	DecryptSalsaKey(ekey,rkey,me,eKeySz);
-	InitSalsaKey(rkey,&rsalsactx);
-	free(ekey);
-	while(rc&&lc){
-		if(select(maxfd,&fds,NULL,NULL,&timeOut)<0){
-			perror("CipherPipe:select");
-		}else{
-			if(FD_ISSET(in,&fds)){
-				GetMsg(in,ptext);
-				salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
-				SendMsg(ext,ctext);
-				lc++;
+	for(;;){
+		ReadRandom(lkey,SALSA20_KEY_SIZE);
+		InitSalsaKey(lkey,&lsalsactx);
+		ekey=EncryptSalsaKey(lkey,them,&eKeySz);
+		SendSalsaKey(ekey,eKeySz,ext);
+		xfree(ekey,eKeySz);
+		while(lc){
+			if(select(maxfd,&fds,NULL,NULL,NULL)<0){
+				perror("CipherPipe:select");
+			}else{
+				if(FD_ISSET(in,&fds)){
+					GetMsg(in,ptext);
+					salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
+					SendMsg(ext,ctext);
+					lc++;
+				}
+				if(FD_ISSET(ext,&fds)){
+					ParseIncMsg(out,ext,ptext,ctext,rkey,me);
+				}
 			}
-			if(FD_ISSET(ext,&fds)){
-				RecvMsg(ext,ctext);
-				salsa20_crypt(&rsalsactx,SALSA20_BLOCK_SIZE,ptext,ctext);
-				PutMsg(out,ptext);
-				rc++;
-			}
+			FD_ZERO(&fds);
+			FD_SET(in,&fds);
+			FD_SET(ext,&fds);
 		}
-		timeOut.tv_sec=5;
-		timeOut.tv_usec=0;
-		FD_ZERO(&fds);
-		FD_SET(in,&fds);
-		FD_SET(ext,&fds);
 	}
 	free(lkey);
 	free(rkey);
 	free(ptext);
 	free(ctext);
-	fprintf(stderr,"Reached end of run of IVs, we do not want to re-use\n");
 }

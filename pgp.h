@@ -18,12 +18,24 @@ void *xmalloc(size_t sz){
 		fprintf(stderr,"xmalloc:malloc size specified is 0\n");
 	}else{
 		if((ret=malloc(sz))==NULL){
-			perror("xmalloc:malloc");
+			fprintf(stderr,"xmalloc:failed to allocate %lu bytes",sz);
+			perror(":malloc");
 		}else{
 			memset(ret,0,sz);
 		}
 	}
 	return ret;
+}
+/*
+ *xfree
+ *	crummy wrapper for free to clear mem & pick up failures.
+ */
+void xfree(void *mem,size_t sz){
+	if(mem!=NULL){
+		memset(mem,0,sz);
+		free(mem);
+		mem=NULL;
+	}
 }
 /*
  *gpgErr
