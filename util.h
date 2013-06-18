@@ -5,7 +5,24 @@
 #include<fcntl.h>
 
 #define E_SOURCE "/dev/urandom"
+#define MAX_ERR	10
+#define TRUE 1
+#define FALSE 0
 
+static int ec;
+
+/*
+ *IsGood 
+ *	Ensure our 'ec' (Error Count) is within tolerance range.
+ */
+int IsGood(void){
+	if(ec<MAX_ERR){
+		return TRUE;
+	}else{
+		fprintf(stderr,"IsGood:Error Count is %d/%d. Bailing Out.\n",ec,MAX_ERR);
+		return FALSE;
+	}
+}
 /*
  *ReadRandom
  *	Reads 'sz' bytes from the defined E_SOURCE file into buffer 'buf'
@@ -17,6 +34,7 @@ void ReadRandom(void *buf,size_t sz){
 
 	if((efd=open(E_SOURCE,O_RDONLY))<0){
 		perror("ReadRandom:open");
+		ec=0;
 	}else{
 		while(tot<sz){
 			if((tmp=read(efd,buf+tot,sz-tot))<0){

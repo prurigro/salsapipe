@@ -2,15 +2,13 @@
 #include<nettle/salsa20.h>
 #include"util.h"
 
-#define TRUE 1
-#define FALSE 0
-
 /*
  *gpgErr
  *	Print error messages relating to GPG failures.
  */
 static int gpgErr(gpgme_error_t err){
 	if(err){
+		ec=MAX_ERR;
 		fprintf(stderr,"gpgErr:%s:\t%s\n",gpgme_strsource(err),gpgme_strerror(err));
 		return TRUE;
 	}else{
@@ -24,7 +22,8 @@ static int gpgErr(gpgme_error_t err){
 static int InitPGP(gpgme_ctx_t *gpgctx){
 	gpgme_check_version(NULL);
 	if(gpgme_new(gpgctx)){
-		fprintf(stderr,"InitPGP: Failed, abandon ship!\n");
+		ec=MAX_ERR;
+		fprintf(stderr,"InitPGP:Failed - abandon ship!\n");
 		return FALSE;
 	}else{
 		return TRUE;

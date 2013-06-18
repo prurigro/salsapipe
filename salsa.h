@@ -24,6 +24,7 @@ static void GetMsg(int fd,uint8_t *buf,size_t *msgsz){
 
 	memset(buf,0,SALSA20_BLOCK_SIZE);
 	if((tmp=read(fd,buf,SALSA20_BLOCK_SIZE))<0){
+		ec++;
 		perror("GetMsg:read");
 	}else{
 		*msgsz=tmp;
@@ -40,16 +41,18 @@ static void SendMsg(int ext,uint8_t *msg,size_t eMsgSz){
 
 	phdr.type=SMTYPE;
 	phdr.sz=eMsgSz;
-	while(tot<sizeof(phdr)){
+	while(tot<sizeof(phdr)&&IsGood()){
 		if((tmp=send(ext,&phdr+tot,sizeof(phdr)-tot,MSG_MORE))<0){
+			ec++;
 			perror("SendMsg:header:send");
 		}else{
 			tot+=tmp;
 		}
 	}
 	tot=0;
-	while(tot<phdr.sz){
+	while(tot<phdr.sz&&IsGood()){
 		if((tmp=send(ext,msg+tot,SALSA20_BLOCK_SIZE-tot,MSG_MORE))<0){
+			ec++;
 			perror("SendMsg:content:send");
 		}else{
 			tot+=tmp;
@@ -64,8 +67,9 @@ static void PutMsg(int out,uint8_t *msg,size_t sz){
 	size_t	tot=0;
 	ssize_t	tmp;
 	
-	while(tot<sz){
+	while(tot<sz&&IsGood()){
 		if((tmp=write(out,msg+tot,sz-tot))<0){
+			ec++;
 			perror("PutMsg:write");
 		}else{
 			tot+=tmp;
@@ -93,16 +97,18 @@ static void SendSalsaKey(uint8_t *eKey,size_t eKeySz,int ext){
 
 	phdr.type=SKTYPE;
 	phdr.sz=eKeySz;
-	while(tot<sizeof(phdr)){
+	while(tot<sizeof(phdr)&&IsGood()){
 		if((tmp=send(ext,&phdr+tot,sizeof(phdr)-tot,MSG_MORE))<0){
+			ec++;
 			perror("SendSalsaKey:header:send");
 		}else{
 			tot+=tmp;
 		}
 	}
 	tot=0;
-	while(tot<eKeySz){
+	while(tot<eKeySz&&IsGood()){
 		if((tmp=send(ext,eKey+tot,eKeySz-tot,MSG_MORE))<0){
+			ec++;
 			perror("SendSalsaKey:content:send");
 		}else{
 			tot+=tmp;
@@ -118,8 +124,9 @@ static void RecvMsg(int ext,uint8_t *msg){
 	ssize_t	tmp;
 
 	memset(msg,0,SALSA20_BLOCK_SIZE);
-	while(tot<SALSA20_BLOCK_SIZE){
+	while(tot<SALSA20_BLOCK_SIZE&&IsGood()){
 		if((tmp=recv(ext,msg+tot,SALSA20_BLOCK_SIZE-tot,MSG_WAITALL))<0){
+			ec++;
 			perror("RecvMsg:content:recv");
 		}else{
 			tot+=tmp;
@@ -137,8 +144,9 @@ static void *ReceiveSalsaKey(size_t eKeySz,int ext){
 
 	ret=xmalloc(eKeySz);
 	if(ret!=NULL){
-		while(tot<eKeySz){
+		while(tot<eKeySz&&IsGood()){
 			if((tmp=recv(ext,ret+tot,eKeySz-tot,MSG_WAITALL))<0){
+				ec++;
 				perror("ReceiveSalsaKey:content:recv");
 			}else{
 				tot+=tmp;
@@ -157,8 +165,9 @@ void ParseIncMsg(int out,int ext,uint8_t *ptext,uint8_t *ctext,uint8_t *rkey,con
 	uint8_t		*tkey;
 	cipherPkt	phdr;
 
-	while(tot<sizeof(phdr)){
+	while(tot<sizeof(phdr)&&IsGood()){
 		if((tmp=recv(ext,&phdr+tot,sizeof(phdr)-tot,MSG_WAITALL))<0){
+			ec++;
 			perror("ParseMsg:header:recv");
 		}else{
 			tot+=tmp;
@@ -180,6 +189,7 @@ void ParseIncMsg(int out,int ext,uint8_t *ptext,uint8_t *ctext,uint8_t *rkey,con
 			}
 		default:
 			fprintf(stderr,"ParseMsg:Received Bad Packet (type (%d) - size (%lu))!\n",phdr.type,phdr.sz);
+			ec=MAX_ERR;
 	}
 }
 /*
@@ -200,6 +210,7 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 				eMsgSz=0;
 	fd_set		fds;
 
+	ec=0;
 	FD_ZERO(&fds);
 	FD_SET(in,&fds);
 	FD_SET(ext,&fds);
@@ -208,15 +219,16 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 	}else{
 		maxfd=ext+1;
 	}
-	for(;;){
+	while(IsGood()){
 		ReadRandom(lkey,SALSA20_KEY_SIZE);
 		InitSalsaKey(lkey,&lsalsactx);
 		ekey=EncryptSalsaKey(lkey,them,&eKeySz);
 		SendSalsaKey(ekey,eKeySz,ext);
 		xfree(ekey,eKeySz);
-		while(lc){
+		while(lc&&IsGood()){
 			if(select(maxfd,&fds,NULL,NULL,NULL)<0){
 				perror("CipherPipe:select");
+				ec++;
 			}else{
 				if(FD_ISSET(in,&fds)){
 					GetMsg(in,ptext,&eMsgSz);
