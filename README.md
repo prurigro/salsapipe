@@ -11,8 +11,9 @@ Compile:
 Usage:
 
     salsamsg -m <Mode> -i <IP> -p <Port> -l <Local PGP ID> -r <Remote PGP ID>
-      Mode -  'c' for Connect (Client)
-              'l' for Listen (Server)
+      Mode -
+        If 'c' for Connect (Client)
+        If 'l' for Listen (Server)
       IP -
         If Mode is 'c' then the remote IP to connect to
         If Mode is 'l' then the local IP to bind to
