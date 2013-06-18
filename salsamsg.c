@@ -100,6 +100,8 @@ int main(int argc, char **argv){
 			break;
 		default:
 			close(tcp_sock);
+			xfree(me,64);
+			xfree(them,64);
 			usage();
 	}
 	return 0;

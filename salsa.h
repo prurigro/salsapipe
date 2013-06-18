@@ -7,14 +7,11 @@
 #include<sys/select.h>
 #include"pgp.h"
 
-#define E_SOURCE "/dev/urandom"
 #define	SKTYPE	0
 #define	SMTYPE	1
 
 struct salsa20_ctx		lsalsactx,
 						rsalsactx;
-
-static int ec=0;
 
 typedef struct cipherPacket{
 	uint8_t	type;
@@ -22,48 +19,30 @@ typedef struct cipherPacket{
 } cipherPkt;
 
 /*
- *ReadRandom
- *	Reads 'sz' bytes from the defined E_SOURCE file into buffer 'buf'
- */
-static void ReadRandom(void *buf,size_t sz){
-	size_t	tot=0;
-	ssize_t	tmp;
-	int		efd;
-
-	if((efd=open(E_SOURCE,0))<0){
-		perror("ReadRandom:open");
-	}else{
-		while(tot<sz){
-			if((tmp=read(efd,buf+tot,sz-tot))<0){
-				perror("ReadRandom:read");
-			}else{
-				tot+=tmp;
-			}
-		}
-		close(efd);
-	}
-}
-/*
  *GetMsg
  *	Retrieve SALSA20_BLOCK_SIZE of message from fd.
  */
-static void GetMsg(int fd,uint8_t *buf){
+static void GetMsg(int fd,uint8_t *buf,size_t *msgsz){
+	ssize_t tmp;
+
 	memset(buf,0,SALSA20_BLOCK_SIZE);
-	if(read(fd,buf,SALSA20_BLOCK_SIZE)<0){
+	if((tmp=read(fd,buf,SALSA20_BLOCK_SIZE))<0){
 		perror("GetMsg:read");
+	}else{
+		*msgsz=tmp;
 	}
 }
 /* 
  *SendMsg
  *	Send encrypted message to 'ext'.
  */
-static void SendMsg(int ext,uint8_t *msg){
+static void SendMsg(int ext,uint8_t *msg,size_t eMsgSz){
 	size_t		tot=0;
 	ssize_t		tmp;
 	cipherPkt	phdr;
 
 	phdr.type=SMTYPE;
-	phdr.sz=SALSA20_BLOCK_SIZE;
+	phdr.sz=eMsgSz;
 	while(tot<sizeof(phdr)){
 		if((tmp=send(ext,&phdr+tot,sizeof(phdr)-tot,MSG_MORE))<0){
 			perror("SendMsg:header:send");
@@ -73,7 +52,7 @@ static void SendMsg(int ext,uint8_t *msg){
 	}
 	tot=0;
 	while(tot<phdr.sz){
-		if((tmp=send(ext,msg+tot,phdr.sz-tot,MSG_MORE))<0){
+		if((tmp=send(ext,msg+tot,SALSA20_BLOCK_SIZE-tot,MSG_MORE))<0){
 			perror("SendMsg:content:send");
 		}else{
 			tot+=tmp;
@@ -84,12 +63,12 @@ static void SendMsg(int ext,uint8_t *msg){
  *PutMsg
  *	Writes a decrypted Salsa20 message to 'fd'
  */
-static void PutMsg(int out,uint8_t *msg){
+static void PutMsg(int out,uint8_t *msg,size_t sz){
 	size_t	tot=0;
 	ssize_t	tmp;
 	
-	while(tot<SALSA20_BLOCK_SIZE){
-		if((tmp=write(out,msg+tot,SALSA20_BLOCK_SIZE-tot))<0){
+	while(tot<sz){
+		if((tmp=write(out,msg+tot,sz-tot))<0){
 			perror("PutMsg:write");
 		}else{
 			tot+=tmp;
@@ -141,6 +120,7 @@ static void RecvMsg(int ext,uint8_t *msg){
 	size_t	tot=0;
 	ssize_t	tmp;
 
+	memset(msg,0,SALSA20_BLOCK_SIZE);
 	while(tot<SALSA20_BLOCK_SIZE){
 		if((tmp=recv(ext,msg+tot,SALSA20_BLOCK_SIZE-tot,MSG_WAITALL))<0){
 			perror("RecvMsg:content:recv");
@@ -170,7 +150,7 @@ static void *ReceiveSalsaKey(size_t eKeySz,int ext){
 	}
 	return ret;
 }
-/*ParseMsg
+/*ParseIncMsg
  *	Parse the data from an incoming message and process it appropriately as
  *	either a new Salsa Key or a message encrypted with the current Salsa key.
  */
@@ -195,10 +175,10 @@ void ParseIncMsg(int out,int ext,uint8_t *ptext,uint8_t *ctext,uint8_t *rkey,con
 			InitSalsaKey(rkey,&rsalsactx);
 			break;
 		case SMTYPE:
-			if(phdr.sz==SALSA20_BLOCK_SIZE){
+			if(phdr.sz<=SALSA20_BLOCK_SIZE){
 				RecvMsg(ext,ctext);
 				salsa20_crypt(&rsalsactx,SALSA20_BLOCK_SIZE,ptext,ctext);
-				PutMsg(out,ptext);
+				PutMsg(out,ptext,phdr.sz);
 				break;
 			}
 		default:
@@ -219,7 +199,8 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 				*ctext=xmalloc(SALSA20_BLOCK_SIZE);
 	uint64_t	lc=1;
 	int			maxfd;
-	size_t		eKeySz;
+	size_t		eKeySz,
+				eMsgSz=0;
 	fd_set		fds;
 
 	FD_ZERO(&fds);
@@ -241,9 +222,9 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 				perror("CipherPipe:select");
 			}else{
 				if(FD_ISSET(in,&fds)){
-					GetMsg(in,ptext);
+					GetMsg(in,ptext,&eMsgSz);
 					salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
-					SendMsg(ext,ctext);
+					SendMsg(ext,ctext,eMsgSz);
 					lc++;
 				}
 				if(FD_ISSET(ext,&fds)){

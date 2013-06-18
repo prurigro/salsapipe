@@ -1,42 +1,10 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
 #include<gpgme.h>
-#include<string.h>
 #include<nettle/salsa20.h>
+#include"util.h"
 
 #define TRUE 1
 #define FALSE 0
 
-/*
- *xmalloc 
- *	crummy wrapper for malloc to pick up failures.
- */
-void *xmalloc(size_t sz){
-	void *ret=NULL;
-	if(sz<1){
-		fprintf(stderr,"xmalloc:malloc size specified is 0\n");
-	}else{
-		if((ret=malloc(sz))==NULL){
-			fprintf(stderr,"xmalloc:failed to allocate %lu bytes",sz);
-			perror(":malloc");
-		}else{
-			memset(ret,0,sz);
-		}
-	}
-	return ret;
-}
-/*
- *xfree
- *	crummy wrapper for free to clear mem & pick up failures.
- */
-void xfree(void *mem,size_t sz){
-	if(mem!=NULL){
-		memset(mem,0,sz);
-		free(mem);
-		mem=NULL;
-	}
-}
 /*
  *gpgErr
  *	Print error messages relating to GPG failures.
