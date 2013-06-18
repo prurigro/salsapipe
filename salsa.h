@@ -1,7 +1,4 @@
 #include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<fcntl.h>
 #include<nettle/salsa20.h>
 #include<sys/socket.h>
 #include<sys/select.h>
@@ -236,8 +233,8 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 			FD_SET(ext,&fds);
 		}
 	}
-	free(lkey);
-	free(rkey);
-	free(ptext);
-	free(ctext);
+	xfree(lkey,SALSA20_KEY_SIZE);
+	xfree(rkey,SALSA20_KEY_SIZE);
+	xfree(ptext,SALSA20_BLOCK_SIZE);
+	xfree(ctext,SALSA20_BLOCK_SIZE);
 }
