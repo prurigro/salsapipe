@@ -7,6 +7,7 @@ Overview:
 Compile:
 
     $ gcc -Wall -Wextra -O2 -o "salsamsg" "salsamsg.c" -lnettle -lgpgme
+        /*  Has thus far only been tested on Arch Linux...  */
       
 Usage:
 
