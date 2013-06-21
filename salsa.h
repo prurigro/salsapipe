@@ -227,17 +227,21 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 		xfree(ekey,eKeySz);
 		while(lc&&IsGood()){
 			if(select(maxfd,&fds,NULL,NULL,NULL)<0){
-				perror("CipherPipe:select");
 				ec++;
+				perror("CipherPipe:select");
 			}else{
-				if(FD_ISSET(in,&fds)){
-					GetMsg(in,ptext,&eMsgSz);
-					salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
-					SendMsg(ext,ctext,eMsgSz);
+				if(FD_ISSET(in,&fds)&&IsGood()){
+					if(IsGood())
+						GetMsg(in,ptext,&eMsgSz);
+					if(IsGood())
+						salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
+					if(IsGood())
+						SendMsg(ext,ctext,eMsgSz);
 					lc++;
 				}
 				if(FD_ISSET(ext,&fds)){
-					ParseIncMsg(out,ext,ptext,ctext,rkey,me);
+					if(IsGood())
+						ParseIncMsg(out,ext,ptext,ctext,rkey,me);
 				}
 			}
 			FD_ZERO(&fds);
