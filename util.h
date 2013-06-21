@@ -9,8 +9,8 @@
 #define TRUE 1
 #define FALSE 0
 
-static int ec;
-
+static int	ec=0,
+			igFlag=0;
 /*
  *IsGood 
  *	Ensure our 'ec' (Error Count) is within tolerance range.
@@ -19,7 +19,10 @@ int IsGood(void){
 	if(ec<MAX_ERR){
 		return TRUE;
 	}else{
-		fprintf(stderr,"IsGood:Error Count is %d/%d. Bailing Out.\n",ec,MAX_ERR);
+		if(!igFlag){
+			fprintf(stderr,"IsGood:Error Count is %d/%d. Bailing Out.\n",ec,MAX_ERR);
+			igFlag=1;
+		}
 		return FALSE;
 	}
 }
