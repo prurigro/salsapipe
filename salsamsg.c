@@ -3,7 +3,7 @@
 #define VERSION "SalsaMsg v0.01"
 
 void usage(void){
-	fprintf(stderr,"%s Usage:\n\tsalsamsg -i <IP/Hostname> -p <Port> -m <l/c> -l <Local PGP Name> -r <Remote PGP Name>\n",VERSION);
+	fprintf(stderr,"%s Usage:\n\tsalsamsg -i <IP> -p <Port> -m <l/c> -l <Local PGP Name> -r <Remote PGP Name>\n",VERSION);
 	exit(1);
 }
 
