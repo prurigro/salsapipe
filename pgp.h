@@ -46,7 +46,7 @@ void *EncryptSalsaKey(const uint8_t *salsaKey,const char *encTo,size_t *sz){
 		gpgErr(gpgme_get_key(gpgctx,encTo,&gpgk[0],0));
 		gpgErr(gpgme_data_new_from_mem(&in,(const char *)salsaKey,SALSA20_KEY_SIZE,0));
 		gpgErr(gpgme_data_new(&out));
-		gpgErr(gpgme_op_encrypt(gpgctx,gpgk,GPGME_ENCRYPT_ALWAYS_TRUST,in,out));
+		gpgErr(gpgme_op_encrypt_sign(gpgctx,gpgk,GPGME_ENCRYPT_ALWAYS_TRUST,in,out));
 		ret=gpgme_data_release_and_get_mem(out,sz);
 		gpgme_data_release(in);
 		gpgme_release(gpgctx);
@@ -70,7 +70,7 @@ void DecryptSalsaKey(void *esalsaKey,void *salsaKey,const char *decTo,size_t sz)
 		gpgErr(gpgme_get_key(gpgctx,decTo,&gpgk[0],1));
 		gpgErr(gpgme_data_new_from_mem(&in,esalsaKey,sz,0));
 		gpgErr(gpgme_data_new(&out));
-		gpgErr(gpgme_op_decrypt(gpgctx,in,out));
+		gpgErr(gpgme_op_decrypt_verify(gpgctx,in,out));
 		gpgme_data_seek(out,0,SEEK_SET);
 		gpgme_data_read(out,salsaKey,SALSA20_KEY_SIZE);
 		gpgme_release(gpgctx);
