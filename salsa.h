@@ -220,7 +220,7 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 		maxfd=ext+1;
 	}
 	while(IsGood()){
-		while(lc){
+		while(lc&&IsGood()){
 			ReadRandom(lkey,SALSA20_KEY_SIZE);
 			InitSalsaKey(lkey,&lsalsactx);
 			ekey=EncryptSalsaKey(lkey,them,&eKeySz);
