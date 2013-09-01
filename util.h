@@ -30,17 +30,17 @@ int IsGood(void){
  *ReadRandom
  *	Reads 'sz' bytes from the defined E_SOURCE file into buffer 'buf'
  */
-void ReadRandom(void *buf,size_t sz){
-	size_t	tot=0;
-	ssize_t	tmp;
-	int		efd;
+void ReadRandom(unsigned char *buf,uint64_t sz){
+	uint64_t	tot=0;
+	int64_t		tmp;
+	int			efd;
 
 	if((efd=open(E_SOURCE,O_RDONLY))<0){
 		perror("ReadRandom:open");
 		ec=0;
 	}else{
 		while(tot<sz){
-			if((tmp=read(efd,buf+tot,sz-tot))<0){
+			if((tmp=read(efd,&buf[tot],sz-tot))<0){
 				perror("ReadRandom:read");
 			}else{
 				tot+=tmp;
@@ -53,7 +53,7 @@ void ReadRandom(void *buf,size_t sz){
  *xmalloc 
  *	crummy wrapper for malloc to pick up failures.
  */
-void *xmalloc(size_t sz){
+void *xmalloc(uint64_t sz){
 	void *ret=NULL;
 	if(sz<1){
 		fprintf(stderr,"xmalloc:malloc size specified is 0\n");
@@ -71,7 +71,7 @@ void *xmalloc(size_t sz){
  *xfree
  *	crummy wrapper for free to clear mem & pick up failures.
  */
-void xfree(void *mem,size_t sz){
+void xfree(void *mem,uint64_t sz){
 	if(mem!=NULL){
 		memset(mem,0,sz);
 		free(mem);
