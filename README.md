@@ -2,7 +2,8 @@ Overview:
 
     Exchanges Salsa20 keys encrypted with GPG between two peers connected through a socket.
     It then uses the exchanged Salsa20 keys to exchange encrypted messages, read in and out
-    through supplied file descriptors.
+    through supplied file descriptors. Once the 'nonce' had gone though it's permutations,
+    a new session key will be generated and transmitted, no nonce/key re-use!
     Contains a very simple example program 'salsamsg'.
     
 Prerequisites:
@@ -40,4 +41,5 @@ Usage:
 
 TODO:
 
-    Automatic session key retransmission to avoid nonce re-use (which is bad! See: WEP)
+    Improve error handling...
+    Encrypt and decrypt the message 'size', as this is currently transmitted plaintext (its an infoleak).
