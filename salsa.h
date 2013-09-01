@@ -7,20 +7,20 @@
 #define	SKTYPE	0
 #define	SMTYPE	1
 
-struct salsa20_ctx		lsalsactx,
-						rsalsactx;
+struct salsa20_ctx	lsalsactx,
+					rsalsactx;
 
 typedef struct cipherPacket{
-	uint8_t	type;
-	size_t	sz;
+	uint8_t		type;
+	uint64_t	sz;
 } cipherPkt;
 
 /*
  *GetMsg
  *	Retrieve SALSA20_BLOCK_SIZE of message from fd.
  */
-static void GetMsg(int fd,uint8_t *buf,size_t *msgsz){
-	ssize_t tmp;
+static void GetMsg(int fd,uint8_t *buf,uint64_t *msgsz){
+	int64_t tmp;
 
 	memset(buf,0,SALSA20_BLOCK_SIZE);
 	if((tmp=read(fd,buf,SALSA20_BLOCK_SIZE))<0){
@@ -34,9 +34,9 @@ static void GetMsg(int fd,uint8_t *buf,size_t *msgsz){
  *SendMsg
  *	Send encrypted message to 'ext'.
  */
-static void SendMsg(int ext,uint8_t *msg,size_t eMsgSz){
-	size_t		tot=0;
-	ssize_t		tmp;
+static void SendMsg(int ext,uint8_t *msg,uint64_t eMsgSz){
+	uint64_t	tot=0;
+	int64_t		tmp;
 	cipherPkt	phdr;
 
 	phdr.type=SMTYPE;
@@ -63,9 +63,9 @@ static void SendMsg(int ext,uint8_t *msg,size_t eMsgSz){
  *PutMsg
  *	Writes a decrypted Salsa20 message to 'fd'
  */
-static void PutMsg(int out,uint8_t *msg,size_t sz){
-	size_t	tot=0;
-	ssize_t	tmp;
+static void PutMsg(int out,uint8_t *msg,uint64_t sz){
+	uint64_t	tot=0;
+	int64_t		tmp;
 	
 	while(tot<sz&&IsGood()){
 		if((tmp=write(out,msg+tot,sz-tot))<0){
@@ -90,9 +90,9 @@ static void InitSalsaKey(uint8_t *key,struct salsa20_ctx *ctx){
  *SendSalsaKey
  *	Sends an encrypted Salsa20 key to 'ext'.
  */
-static void SendSalsaKey(uint8_t *eKey,size_t eKeySz,int ext){
-	size_t	tot=0;
-	ssize_t	tmp;
+static void SendSalsaKey(uint8_t *eKey,uint64_t eKeySz,int ext){
+	uint64_t	tot=0;
+	int64_t		tmp;
 	cipherPkt	phdr;
 
 	phdr.type=SKTYPE;
@@ -120,8 +120,8 @@ static void SendSalsaKey(uint8_t *eKey,size_t eKeySz,int ext){
  *	Receives an encrypted Salsa20 message
  */
 static void RecvMsg(int ext,uint8_t *msg){
-	size_t	tot=0;
-	ssize_t	tmp;
+	uint64_t	tot=0;
+	int64_t		tmp;
 
 	memset(msg,0,SALSA20_BLOCK_SIZE);
 	while(tot<SALSA20_BLOCK_SIZE&&IsGood()){
@@ -138,9 +138,9 @@ static void RecvMsg(int ext,uint8_t *msg){
  *	Receives an encrypted Salsa20 key from 'ext' and returns the encrypted data in a buffer.
  */
 static void *ReceiveSalsaKey(size_t eKeySz,int ext){
-	size_t	tot=0;
-	ssize_t	tmp;
-	uint8_t	*ret;
+	uint64_t	tot=0;
+	int64_t		tmp;
+	uint8_t		*ret;
 
 	ret=xmalloc(eKeySz);
 	if(ret!=NULL){
@@ -160,8 +160,8 @@ static void *ReceiveSalsaKey(size_t eKeySz,int ext){
  *	either a new Salsa Key or a message encrypted with the current Salsa key.
  */
 void ParseIncMsg(int out,int ext,uint8_t *ptext,uint8_t *ctext,uint8_t *rkey,const char *me){
-	size_t		tot=0;
-	ssize_t		tmp;
+	uint64_t	tot=0;
+	int64_t		tmp;
 	uint8_t		*tkey;
 	cipherPkt	phdr;
 
@@ -204,9 +204,9 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 				*rkey=xmalloc(SALSA20_KEY_SIZE),
 				*ptext=xmalloc(SALSA20_BLOCK_SIZE),
 				*ctext=xmalloc(SALSA20_BLOCK_SIZE);
-	uint64_t	lc=1;
 	int			maxfd;
-	size_t		eKeySz,
+	uint64_t	lc=1,
+				eKeySz,
 				eMsgSz=0;
 	fd_set		fds;
 
