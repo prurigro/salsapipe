@@ -220,33 +220,35 @@ void CipherPipe(int in,int out,int ext,const char *them,const char *me){
 		maxfd=ext+1;
 	}
 	while(IsGood()){
-		ReadRandom(lkey,SALSA20_KEY_SIZE);
-		InitSalsaKey(lkey,&lsalsactx);
-		ekey=EncryptSalsaKey(lkey,them,&eKeySz);
-		SendSalsaKey(ekey,eKeySz,ext);
-		xfree(ekey,eKeySz);
-		while(lc&&IsGood()){
-			if(select(maxfd,&fds,NULL,NULL,NULL)<0){
-				ec++;
-				perror("CipherPipe:select");
-			}else{
-				if(FD_ISSET(in,&fds)&&IsGood()){
-					if(IsGood())
-						GetMsg(in,ptext,&eMsgSz);
-					if(IsGood())
-						salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
-					if(IsGood())
-						SendMsg(ext,ctext,eMsgSz);
-					lc++;
+		while(lc){
+			ReadRandom(lkey,SALSA20_KEY_SIZE);
+			InitSalsaKey(lkey,&lsalsactx);
+			ekey=EncryptSalsaKey(lkey,them,&eKeySz);
+			SendSalsaKey(ekey,eKeySz,ext);
+			xfree(ekey,eKeySz);
+			while(lc&&IsGood()){
+				if(select(maxfd,&fds,NULL,NULL,NULL)<0){
+					ec++;
+					perror("CipherPipe:select");
+				}else{
+					if(FD_ISSET(in,&fds)&&IsGood()){
+						if(IsGood())
+							GetMsg(in,ptext,&eMsgSz);
+						if(IsGood())
+							salsa20_crypt(&lsalsactx,SALSA20_BLOCK_SIZE,ctext,ptext);
+						if(IsGood())
+							SendMsg(ext,ctext,eMsgSz);
+						lc++;
+					}
+					if(FD_ISSET(ext,&fds)){
+						if(IsGood())
+							ParseIncMsg(out,ext,ptext,ctext,rkey,me);
+					}
 				}
-				if(FD_ISSET(ext,&fds)){
-					if(IsGood())
-						ParseIncMsg(out,ext,ptext,ctext,rkey,me);
-				}
+				FD_ZERO(&fds);
+				FD_SET(in,&fds);
+				FD_SET(ext,&fds);
 			}
-			FD_ZERO(&fds);
-			FD_SET(in,&fds);
-			FD_SET(ext,&fds);
 		}
 	}
 	xfree(lkey,SALSA20_KEY_SIZE);
