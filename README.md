@@ -1,13 +1,13 @@
 Overview:
 
-    Exchanges Salsa20 keys encrypted through GPG between two peers connected through a socket.
+    Exchanges Salsa20 keys encrypted with GPG between two peers connected through a socket.
     It then uses the exchanged Salsa20 keys to exchange encrypted messages, read in and out
     through supplied file descriptors.
     Contains a very simple example program 'salsamsg'.
     
 Prerequisites:
 
-    GPGME Library - Used to retrieve known public/private keys to exchange the salsa session keys securely...
+    GPGME - Used to retrieve known public/private keys to exchange the salsa session keys securely...
         Available from: http://www.gnupg.org/related_software/gpgme/
     nettle - We use nettles salsa20 algorithm to encrypt and decrypt the actual message content once we've exchanged salsa20 keys.
         Available from: http://www.lysator.liu.se/~nisse/nettle/
