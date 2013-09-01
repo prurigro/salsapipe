@@ -34,7 +34,7 @@ static int InitPGP(gpgme_ctx_t *gpgctx){
  *	Encrypts a Salsa20 key with the PGP key for 'encTo' and returns a malloc'd
  *	buffer containing the resulting encrypted content.
  */
-void *EncryptSalsaKey(const uint8_t *salsaKey,const char *encTo,size_t *sz){
+void *EncryptSalsaKey(const uint8_t *salsaKey,const char *encTo,uint64_t *sz){
 	gpgme_ctx_t				gpgctx;
 	gpgme_data_t			in,
 							out;
@@ -57,7 +57,7 @@ void *EncryptSalsaKey(const uint8_t *salsaKey,const char *encTo,size_t *sz){
  *DecryptSalsaKey
  *	Decrypts a Salsa20 key with the PGP key for 'decTo' and places the decrypted key inside 'salsaKey'.
  */
-void DecryptSalsaKey(void *esalsaKey,void *salsaKey,const char *decTo,size_t sz){
+void DecryptSalsaKey(void *esalsaKey,void *salsaKey,const char *decTo,uint64_t sz){
 	gpgme_ctx_t		gpgctx;
 	gpgme_data_t	in,
 					out;
